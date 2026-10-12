@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+env/
+venv/
+ENV/
+
+# Database
+queue.db
+*.db-journal
+
+# Binaries
+cloudflared.exe
+*.exe
+
+# System / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

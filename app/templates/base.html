@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>{% block title %}WaitLess - Smart Remote Queue{% endblock %}</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            900: '#312e81',
+                        },
+                        accent: {
+                            500: '#10b981',
+                            600: '#059669',
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'bounce-short': 'bounce 1s ease-in-out 2',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
+    <!-- Navigation Bar -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm backdrop-blur-md bg-white/90">
+        <div class="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+            <a href="/" class="flex items-center gap-2.5 group">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-brand-500/20 group-hover:scale-105 transition-transform">
+                    <i data-lucide="clock-4" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <span class="font-extrabold text-lg tracking-tight bg-gradient-to-r from-slate-900 to-brand-700 bg-clip-text text-transparent">WaitLess</span>
+                    <span class="hidden sm:inline-block text-xs font-semibold px-2 py-0.5 ml-1.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">Live Queue</span>
+                </div>
+            </a>
+
+            <!-- Nav Links -->
+            <nav class="flex items-center gap-1 sm:gap-2">
+                <a href="/" class="px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-600 hover:text-brand-600 hover:bg-slate-100 transition-colors flex items-center gap-1.5">
+                    <i data-lucide="store" class="w-4 h-4"></i>
+                    <span class="hidden md:inline">Business</span>
+                </a>
+                <a href="/join" class="px-3 py-1.5 rounded-lg text-sm font-semibold bg-brand-50 text-brand-700 hover:bg-brand-100 transition-colors flex items-center gap-1.5">
+                    <i data-lucide="user-plus" class="w-4 h-4"></i>
+                    <span>Join Line</span>
+                </a>
+                <a href="/staff" class="px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors flex items-center gap-1.5">
+                    <i data-lucide="shield-check" class="w-4 h-4"></i>
+                    <span class="hidden md:inline">Staff Manager</span>
+                    <span class="md:hidden">Staff</span>
+                </a>
+                <a href="/analytics" class="px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors flex items-center gap-1.5">
+                    <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+                    <span class="hidden md:inline">Metrics</span>
+                </a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Active Ticket Reminder Banner (Shown if customer has a ticket saved in browser) -->
+    <div id="active-ticket-banner" class="hidden bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2 text-center text-xs sm:text-sm font-medium shadow-inner flex items-center justify-center gap-2">
+        <i data-lucide="bell" class="w-4 h-4 animate-bounce"></i>
+        <span>You have an active spot in line!</span>
+        <a id="active-ticket-link" href="#" class="underline font-bold hover:text-amber-100 ml-1">View My Ticket &rarr;</a>
+    </div>
+
+    <!-- Main Content -->
+    <main class="flex-1 w-full max-w-5xl mx-auto px-4 py-6">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 mt-auto py-6">
+        <div class="max-w-5xl mx-auto px-4 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div>
+                &copy; WaitLess Queue System &bull; Designed for Clinics, Salons & Repair Shops
+            </div>
+            <div class="flex items-center gap-4">
+                <span class="inline-flex items-center gap-1.5 text-emerald-600 font-medium">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                    Live Sync Connected
+                </span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Audio Chime Generator using Web Audio API -->
+    <script>
+        function playChimeAlert(type = 'turn') {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const now = ctx.currentTime;
+                
+                if (type === 'turn') {
+                    // Ascending cheerful chime: C5 -> E5 -> G5
+                    const freqs = [523.25, 659.25, 783.99, 1046.50];
+                    freqs.forEach((freq, idx) => {
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+                        gain.gain.setValueAtTime(0.2, now + idx * 0.12);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.35);
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.start(now + idx * 0.12);
+                        osc.stop(now + idx * 0.12 + 0.4);
+                    });
+                } else {
+                    // Soft ping
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(587.33, now);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.35);
+                }
+            } catch (e) {
+                console.log("Audio alert not allowed yet without user interaction:", e);
+            }
+        }
+
+        // Global WebSocket connection for realtime push
+        (function setupLiveSync() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            let socket = null;
+
+            function connect() {
+                socket = new WebSocket(wsUrl);
+                socket.onopen = () => {
+                    console.log("[WaitLess] Realtime sync active");
+                };
+                socket.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        window.dispatchEvent(new CustomEvent('queue-updated', { detail: data }));
+                    } catch (e) {
+                        console.error("Invalid WS message:", e);
+                    }
+                };
+                socket.onclose = () => {
+                    setTimeout(connect, 3000); // Auto reconnect
+                };
+                socket.onerror = () => {
+                    socket.close();
+                };
+            }
+            connect();
+        })();
+
+        // Check local storage for persistent customer ticket
+        (function checkSavedTicket() {
+            const savedTicketId = localStorage.getItem('waitless_ticket_id');
+            const banner = document.getElementById('active-ticket-banner');
+            const link = document.getElementById('active-ticket-link');
+            if (savedTicketId && banner && link && !window.location.pathname.includes('/ticket/')) {
+                link.href = `/ticket/${savedTicketId}`;
+                banner.classList.remove('hidden');
+            }
+        })();
+
+        document.addEventListener("DOMContentLoaded", () => {
+            lucide.createIcons();
+        });
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

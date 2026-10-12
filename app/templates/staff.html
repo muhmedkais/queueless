@@ -1,0 +1,481 @@
+{% extends "base.html" %}
+
+{% block title %}Staff Queue Manager — {{ settings.name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Top Staff Action Bar -->
+    <div class="bg-white rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2">
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-brand-50 text-brand-700 border border-brand-100">
+                    <i data-lucide="shield-check" class="w-3.5 h-3.5"></i> Staff Dashboard
+                </span>
+                <span class="text-xs text-slate-500 font-medium">
+                    Queue: <strong class="text-slate-800">{{ settings.name }}</strong>
+                </span>
+            </div>
+            <h1 class="text-2xl font-black text-slate-900 tracking-tight mt-1">Live Queue Operations</h1>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2.5">
+            <!-- Add Walk-In Button -->
+            <button onclick="openWalkinModal()" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-sm transition-colors">
+                <i data-lucide="user-plus" class="w-4 h-4 text-slate-600"></i>
+                <span>Add Walk-In</span>
+            </button>
+
+            <!-- Call Next Action (Primary) -->
+            <button onclick="callNextCustomer()" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 active:scale-95 text-white font-bold text-sm shadow-md shadow-brand-500/25 transition-all">
+                <i data-lucide="megaphone" class="w-4 h-4"></i>
+                <span>Call Next Customer</span>
+            </button>
+
+            <!-- Settings Button -->
+            <button onclick="openSettingsModal()" class="inline-flex items-center gap-1.5 p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors" title="Queue Settings">
+                <i data-lucide="settings" class="w-4 h-4"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Quick Stats & Wait Estimate Config -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+            <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Waiting in Line</div>
+            <div class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">{{ metrics.waiting_count }}</div>
+            <div class="text-[11px] text-slate-500 mt-0.5">{{ metrics.total_active }} active total</div>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+            <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Current Wait Est.</div>
+            <div class="text-2xl sm:text-3xl font-extrabold text-brand-600 mt-1">~{{ metrics.estimated_wait_minutes }}m</div>
+            <div class="text-[11px] text-slate-500 mt-0.5">@ {{ settings.avg_service_mins }} min / person</div>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+            <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Served Today</div>
+            <div class="text-2xl sm:text-3xl font-extrabold text-emerald-600 mt-1">{{ metrics.served_today }}</div>
+            <div class="text-[11px] text-slate-500 mt-0.5">{{ metrics.total_today }} checked in</div>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+            <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Remote Join %</div>
+            <div class="text-2xl sm:text-3xl font-extrabold text-indigo-600 mt-1">{{ metrics.remote_percentage }}%</div>
+            <div class="text-[11px] text-slate-500 mt-0.5">{{ metrics.remote_total }} remote / {{ metrics.walkin_total }} walk-in</div>
+        </div>
+    </div>
+
+    <!-- CURRENTLY SERVING HERO CARD -->
+    <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+            <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-rose-500 animate-ping"></span>
+                <h3 class="text-sm font-bold uppercase tracking-wider text-slate-700">Currently Serving At Counter</h3>
+            </div>
+            {% if currently_serving %}
+            <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                Active Turn
+            </span>
+            {% endif %}
+        </div>
+
+        {% if currently_serving %}
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-slate-50 p-5 rounded-2xl border border-slate-200/80">
+            <div class="flex items-start gap-4">
+                <div class="w-16 h-16 rounded-2xl bg-brand-600 text-white flex flex-col items-center justify-center font-black text-2xl shadow-md">
+                    <span>{{ currently_serving.ticket_number }}</span>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h4 class="text-xl font-extrabold text-slate-900">{{ currently_serving.customer_name }}</h4>
+                        {% if currently_serving.is_remote %}
+                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">Remote</span>
+                        {% else %}
+                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">Walk-In</span>
+                        {% endif %}
+                        {% if currently_serving.has_arrived %}
+                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                            <i data-lucide="map-pin" class="w-3 h-3"></i> Arrived
+                        </span>
+                        {% else %}
+                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                            Waiting for arrival
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-3">
+                        <span><strong class="text-slate-700">Service:</strong> {{ currently_serving.service_type }}</span>
+                        <span>&bull;</span>
+                        <span><strong class="text-slate-700">Phone:</strong> {{ currently_serving.phone }}</span>
+                        <span>&bull;</span>
+                        <span><strong class="text-slate-700">Party:</strong> {{ currently_serving.party_size }}</span>
+                    </div>
+                    {% if currently_serving.notes %}
+                    <p class="text-xs text-slate-600 mt-2 bg-white p-2 rounded-lg border border-slate-200 italic">
+                        "{{ currently_serving.notes }}"
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Actions for Called Customer -->
+            <div class="flex flex-wrap items-center gap-2.5">
+                <button onclick="resendSms({{ currently_serving.id }})" class="px-3.5 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200 transition-colors flex items-center gap-1.5" title="Resend Turn Alert SMS">
+                    <i data-lucide="send" class="w-3.5 h-3.5 text-brand-600"></i>
+                    <span>Resend SMS</span>
+                </button>
+                <button onclick="markNoShow({{ currently_serving.id }})" class="px-3.5 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200 transition-colors flex items-center gap-1.5">
+                    <i data-lucide="user-x" class="w-3.5 h-3.5"></i>
+                    <span>No-Show / Skip</span>
+                </button>
+                <button onclick="completeTicket({{ currently_serving.id }})" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition-all flex items-center gap-1.5">
+                    <i data-lucide="check-circle" class="w-4 h-4"></i>
+                    <span>Mark Served & Complete</span>
+                </button>
+            </div>
+        </div>
+        {% else %}
+        <div class="py-8 text-center text-slate-400 space-y-2">
+            <i data-lucide="inbox" class="w-10 h-10 mx-auto text-slate-300"></i>
+            <p class="text-sm font-semibold text-slate-600">No customer is currently called</p>
+            <p class="text-xs">Click <strong>Call Next Customer</strong> or select someone from the queue below.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- QUEUE LINE MANAGEMENT LIST -->
+    <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
+            <div>
+                <h3 class="text-lg font-bold text-slate-900">Waiting Customers</h3>
+                <p class="text-xs text-slate-500">Ordered by arrival / check-in order</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-brand-700 border border-indigo-100">
+                    {{ metrics.waiting_count }} waiting
+                </span>
+            </div>
+        </div>
+
+        {% if active_queue|length == 0 or (active_queue|length == 1 and currently_serving) %}
+        <div class="py-12 text-center text-slate-400 space-y-2">
+            <i data-lucide="check-check" class="w-12 h-12 mx-auto stroke-1 text-slate-300"></i>
+            <p class="text-base font-semibold text-slate-600">Queue is completely clear!</p>
+            <p class="text-xs">Customers can join using the public link or you can add walk-ins manually.</p>
+        </div>
+        {% else %}
+        <div class="divide-y divide-slate-100">
+            {% for item in active_queue %}
+            {% if item.status == 'WAITING' %}
+            <div class="py-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-slate-50/70 p-2 rounded-xl transition-colors">
+                <div class="flex items-start sm:items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-slate-100 text-slate-800 font-extrabold text-sm flex items-center justify-center border border-slate-200 flex-shrink-0">
+                        {{ item.ticket_number }}
+                    </div>
+                    <div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="font-bold text-sm text-slate-900">{{ item.customer_name }}</span>
+                            
+                            <!-- Remote vs Walk-In Tag -->
+                            {% if item.is_remote %}
+                            <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                Remote Join
+                            </span>
+                            {% else %}
+                            <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                                Walk-in
+                            </span>
+                            {% endif %}
+
+                            <!-- Arrival Tracking Tag -->
+                            {% if item.has_arrived %}
+                            <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-0.5">
+                                <i data-lucide="map-pin" class="w-2.5 h-2.5 text-emerald-600"></i> Arrived
+                            </span>
+                            {% else %}
+                            <span class="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                                Away
+                            </span>
+                            {% endif %}
+
+                            <!-- Nearly Next Alert Sent Tag -->
+                            {% if item.nearly_next_notified %}
+                            <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-0.5">
+                                <i data-lucide="bell" class="w-2.5 h-2.5"></i> SMS Alerted
+                            </span>
+                            {% endif %}
+                        </div>
+
+                        <div class="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-2">
+                            <span>{{ item.service_type }}</span>
+                            <span>&bull;</span>
+                            <span>{{ item.phone }}</span>
+                            <span>&bull;</span>
+                            <span>Party: {{ item.party_size }}</span>
+                            {% if item.notes %}
+                            <span>&bull;</span>
+                            <span class="text-slate-400 italic">"{{ item.notes }}"</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Individual Item Actions -->
+                <div class="flex items-center gap-2 self-end md:self-center">
+                    <button onclick="resendSms({{ item.id }})" class="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs transition-colors" title="Send SMS Update">
+                        <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
+                    </button>
+                    <button onclick="callSpecificTicket({{ item.id }})" class="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1">
+                        <i data-lucide="phone-call" class="w-3.5 h-3.5"></i>
+                        <span>Call</span>
+                    </button>
+                    <button onclick="markNoShow({{ item.id }})" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors" title="Cancel / Remove">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- RECENT SMS DISPATCH LOG -->
+    <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div class="flex items-center gap-2">
+                <i data-lucide="radio" class="w-4 h-4 text-brand-600"></i>
+                <h3 class="text-sm font-bold uppercase tracking-wider text-slate-700">Turn SMS Notification Activity</h3>
+            </div>
+            <span class="text-xs text-slate-400">Real-time log</span>
+        </div>
+
+        <div class="max-h-56 overflow-y-auto space-y-2 pr-1">
+            {% if recent_sms|length == 0 %}
+            <p class="text-xs text-slate-400 py-3 text-center">No SMS notifications dispatched yet today.</p>
+            {% else %}
+            {% for n in recent_sms %}
+            <div class="p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs flex items-start justify-between gap-3">
+                <div class="space-y-1">
+                    <div class="flex items-center gap-2">
+                        <span class="font-bold text-slate-900">{{ n.ticket_number }}</span>
+                        <span class="text-slate-400">&bull;</span>
+                        <span class="font-medium text-slate-600">{{ n.phone }}</span>
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full
+                            {% if n.notification_type == 'CALLED' %}bg-rose-100 text-rose-700
+                            {% elif n.notification_type == 'NEARLY_NEXT' %}bg-amber-100 text-amber-700
+                            {% else %}bg-indigo-100 text-indigo-700{% endif %}">
+                            {{ n.notification_type }}
+                        </span>
+                    </div>
+                    <p class="text-slate-500 text-[11px] font-mono line-clamp-2">
+                        {{ n.message }}
+                    </p>
+                </div>
+                <div class="text-[10px] text-slate-400 whitespace-nowrap">
+                    {{ n.created_at[11:16] }}
+                </div>
+            </div>
+            {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- ADD WALK-IN MODAL -->
+<div id="walkin-modal" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+        <div class="flex items-center justify-between">
+            <h3 class="text-lg font-extrabold text-slate-900">Add In-Person Walk-In</h3>
+            <button onclick="closeWalkinModal()" class="text-slate-400 hover:text-slate-600 p-1">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <form id="walkin-form" class="space-y-3.5">
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Customer Name *</label>
+                <input type="text" name="customer_name" required placeholder="e.g. John Doe"
+                    class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-brand-500 outline-none">
+            </div>
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Phone Number (Optional)</label>
+                <input type="tel" name="phone" placeholder="Optional for text alerts"
+                    class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-brand-500 outline-none">
+            </div>
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Service</label>
+                <input type="text" name="service_type" value="Walk-in Consultation"
+                    class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-brand-500 outline-none">
+            </div>
+            <button type="submit" class="w-full py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm shadow transition-all">
+                Add to Queue
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div id="settings-modal" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+        <div class="flex items-center justify-between">
+            <h3 class="text-lg font-extrabold text-slate-900">Queue Settings</h3>
+            <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-slate-600 p-1">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <form id="settings-form" class="space-y-3.5">
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Business Name</label>
+                <input type="text" name="name" value="{{ settings.name }}" required
+                    class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm outline-none">
+            </div>
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Queue State</label>
+                <select name="status" class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm outline-none">
+                    <option value="open" {% if settings.status == 'open' %}selected{% endif %}>Open (Accepting Customers)</option>
+                    <option value="paused" {% if settings.status == 'paused' %}selected{% endif %}>Paused (Temporarily on hold)</option>
+                    <option value="closed" {% if settings.status == 'closed' %}selected{% endif %}>Closed</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Avg Service Time Per Person (Minutes)
+                </label>
+                <input type="number" name="avg_service_mins" value="{{ settings.avg_service_mins }}" min="1" max="180" required
+                    class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm outline-none">
+                <p class="text-[10px] text-slate-400 mt-1">Used to automatically calculate customer wait estimates.</p>
+            </div>
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    SMS Notification Threshold
+                </label>
+                <select name="notify_threshold" class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm outline-none">
+                    <option value="1" {% if settings.notify_threshold == 1 %}selected{% endif %}>Notify when 1 person ahead</option>
+                    <option value="2" {% if settings.notify_threshold == 2 %}selected{% endif %}>Notify when 2 people ahead</option>
+                    <option value="3" {% if settings.notify_threshold == 3 %}selected{% endif %}>Notify when 3 people ahead</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Location Address</label>
+                <input type="text" name="location_address" value="{{ settings.location_address }}"
+                    class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm outline-none">
+            </div>
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Phone Number</label>
+                <input type="text" name="phone" value="{{ settings.phone }}"
+                    class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm outline-none">
+            </div>
+            <button type="submit" class="w-full py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm shadow transition-all">
+                Save Settings
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function callNextCustomer() {
+        try {
+            const resp = await fetch('/api/staff/call-next', { method: 'POST' });
+            const data = await resp.json();
+            if (data.success) {
+                playChimeAlert('turn');
+                window.location.reload();
+            } else {
+                alert(data.message || "No waiting customers in the queue.");
+            }
+        } catch (e) {
+            console.error("Call next error:", e);
+        }
+    }
+
+    async function callSpecificTicket(ticketId) {
+        try {
+            const resp = await fetch(`/api/staff/call/${ticketId}`, { method: 'POST' });
+            const data = await resp.json();
+            if (data.success) {
+                playChimeAlert('turn');
+                window.location.reload();
+            }
+        } catch (e) {
+            console.error("Call specific error:", e);
+        }
+    }
+
+    async function completeTicket(ticketId) {
+        try {
+            const resp = await fetch(`/api/staff/complete/${ticketId}`, { method: 'POST' });
+            if (resp.ok) {
+                window.location.reload();
+            }
+        } catch (e) {
+            console.error("Complete error:", e);
+        }
+    }
+
+    async function markNoShow(ticketId) {
+        if (!confirm("Mark this customer as No-Show / Cancel?")) return;
+        try {
+            const resp = await fetch(`/api/staff/mark-no-show/${ticketId}`, { method: 'POST' });
+            if (resp.ok) {
+                window.location.reload();
+            }
+        } catch (e) {
+            console.error("No show error:", e);
+        }
+    }
+
+    async function resendSms(ticketId) {
+        try {
+            const resp = await fetch(`/api/staff/resend-sms/${ticketId}`, { method: 'POST' });
+            const data = await resp.json();
+            if (data.success) {
+                alert("Turn SMS notification resent successfully!");
+            }
+        } catch (e) {
+            console.error("Resend SMS error:", e);
+        }
+    }
+
+    // Modal controls
+    function openWalkinModal() {
+        document.getElementById('walkin-modal').classList.remove('hidden');
+    }
+    function closeWalkinModal() {
+        document.getElementById('walkin-modal').classList.add('hidden');
+    }
+    function openSettingsModal() {
+        document.getElementById('settings-modal').classList.remove('hidden');
+    }
+    function closeSettingsModal() {
+        document.getElementById('settings-modal').classList.add('hidden');
+    }
+
+    // Form handlers
+    document.getElementById('walkin-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const resp = await fetch('/api/staff/walk-in', { method: 'POST', body: formData });
+        if (resp.ok) {
+            closeWalkinModal();
+            window.location.reload();
+        }
+    });
+
+    document.getElementById('settings-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const resp = await fetch('/api/staff/settings', { method: 'POST', body: formData });
+        if (resp.ok) {
+            closeSettingsModal();
+            window.location.reload();
+        }
+    });
+
+    // Auto sync on queue events
+    window.addEventListener('queue-updated', () => {
+        window.location.reload();
+    });
+</script>
+{% endblock %}

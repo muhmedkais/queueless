@@ -1,0 +1,15 @@
+[project]
+name = "remote-queue"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.143.0",
+    "httpx>=0.28.1",
+    "jinja2>=3.1.6",
+    "pydantic>=2.14.0",
+    "python-multipart>=0.0.32",
+    "uvicorn>=0.54.0",
+    "websockets>=17.2",
+]
